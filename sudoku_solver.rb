@@ -18,7 +18,6 @@ class Cell
   
   def solve(value)
     unless solved?
-      # puts "solving #{self} to #{value}"
       (1..9).to_set.delete(value).each { |candidate| eliminate(candidate) }
       self
     end
@@ -31,6 +30,11 @@ class Cell
         if solved?
           puts "solved #{self} via elimination"
           @grid.eliminate_from_related_cells(self)
+          # TODO: we *could* invoke our test_<element>_solved_for
+          # tests here, instead of from the top-level Grid#solve
+          # method, resulting a purely recursive design. Need to
+          # determine which is more efficient; I suspect invoking it
+          # here would be.
         end
       end
     end
@@ -73,7 +77,6 @@ class Grid
   end
 
   def solve
-    # puts "setting #{row},#{col} with #{value}"
     progress = true
     n = 0
     while !solved? && progress
