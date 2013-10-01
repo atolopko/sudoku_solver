@@ -1,6 +1,7 @@
 require 'Set'
 
 class Cell
+  include Comparable
 
   attr_reader :row, :col, :candidates
   
@@ -21,11 +22,6 @@ class Cell
       candidates_to_eliminate = (1..9).to_set.delete(value)
       # candidates_to_eliminate.each { |candidate| eliminate(candidate) } # TOOD: infinite recursion!
       candidates.subtract(candidates_to_eliminate)
-      candidates_to_eliminate.each do |candidate|
-        @grid.test_row_solved_for(row, candidate)
-        @grid.test_col_solved_for(col, candidate)
-        @grid.test_box_solved_for(row, col, candidate)
-      end
       @grid.eliminate_from_related_cells(self)
       true
     end
@@ -35,11 +31,8 @@ class Cell
     unless solved?
       if candidates.delete(candidate)
         # puts "eliminated #{candidate} from #{[@row,@col]}"
-        @grid.test_row_solved_for(row, candidate)
-        @grid.test_col_solved_for(col, candidate)
-        @grid.test_box_solved_for(row, col, candidate)
         if solved?
-          # puts "solved #{self} via elimination"
+          puts "solved #{self} via elimination"
           @grid.eliminate_from_related_cells(self)
         end
       end
@@ -61,6 +54,10 @@ class Cell
   def to_s
     "(#{row},#{col})={#{candidates.entries.join(',')}}"
   end
+
+  def <=>(other)
+    row * 9 + col <=> other.row * 9 + other.col
+  end
 end
 
 class Grid
@@ -77,6 +74,26 @@ class Grid
         if (1..9).include?(value)
           # puts "setting #{row},#{col} with #{value}"
           g[row][col].solve(value) 
+        end
+      end
+    end
+    puts "done setting up initial grid"
+    puts self
+    progress = true
+    n = 0
+    while !solved? && progress
+      progress = false
+      n += 1
+      puts "loop #{n}"
+      (1..9).each do |candidate|
+        (0..8).each do |row|
+          progress ||= test_row_solved_for(row, candidate)
+        end
+        (0..8).each do |col|
+          progress ||= test_col_solved_for(col, candidate)
+        end
+        (0..8).each do |box|
+          progress ||= test_box_solved_for(3 * (box / 3), 3 * (box % 3), candidate)
         end
       end
     end
@@ -102,8 +119,10 @@ class Grid
     cells_with_value =
       g[row].select { |cell| cell.candidates.include?(value) }
     if cells_with_value.size == 1
-      # puts "solved #{cells_with_value.first} in row" if
-        cells_with_value.first.solve(value)
+      if cells_with_value.first.solve(value)
+        puts "solved #{cells_with_value.first} in row"
+        true
+      end
     end
   end
 
@@ -114,8 +133,10 @@ class Grid
     cells_with_value =
       column(col).select { |cell| cell.candidates.include?(value) }
     if cells_with_value.size == 1
-      # puts "solved #{cells_with_value.first} in col" if
-        cells_with_value.first.solve(value)
+      if cells_with_value.first.solve(value)
+        puts "solved #{cells_with_value.first} in col"
+        true
+      end
     end
   end
      
@@ -126,18 +147,22 @@ class Grid
     cells_with_value =
       box(row, col).select { |cell| cell.candidates.include?(value) }
     if cells_with_value.size == 1
-      # puts "solved #{cells_with_value.first} in box" if
-        cells_with_value.first.solve(value)
+      if cells_with_value.first.solve(value)
+        puts "solved #{cells_with_value.first} in box"
+        true
+      end
     end
   end
 
   def eliminate_from_related_cells(solved_cell)
-    (row(solved_cell.row) + 
-     col(solved_cell.col) + 
-     box(solved_cell.row, solved_cell.col)).
-      to_set.
-      delete(solved_cell).
-      each { |cell| cell.eliminate(solved_cell.value) }
+    if solved_cell.solved?
+      (row(solved_cell.row) + 
+       col(solved_cell.col) + 
+       box(solved_cell.row, solved_cell.col)).
+        to_set.
+        delete(solved_cell).
+        each { |cell| cell.eliminate(solved_cell.value) }
+    end
   end
 
   def row(row)
@@ -167,27 +192,28 @@ class Grid
   end
 end
 
-# ["..19..7..",
-#  "4..83.59.",
-#  "3.7.54.2.",
-#  ".495.6...",
-#  "7.......6",
-#  "...7.125.",
-#  ".7.61.4.5",
-#  ".68.49..2",
-#  "..4..58.."]
+# solved with elimination only!
+test1 =
+  ["..19..7..",
+   "4..83.59.",
+   "3.7.54.2.",
+   ".495.6...",
+   "7.......6",
+   "...7.125.",
+   ".7.61.4.5",
+   ".68.49..2",
+   "..4..58.."]
 
-# no5 = 
-#   ['.6......3',
-#    '..5.2...4',
-#    '9.2.17...',
-#    '....5..67',
-#    '.1...83..',
-#    '..92.1...',
-#    '1........',
-#    '.......8.',
-#    '..83.9...']
-
+no5 = 
+  ['.6......3',
+   '..5.2...4',
+   '9.2.17...',
+   '....5..67',
+   '.1...83..',
+   '..92.1...',
+   '1........',
+   '.......8.',
+   '..83.9...']
 
 no105 =
   ['...2....1',
@@ -215,5 +241,5 @@ initial = no105
 puts initial
 puts
 solution = Grid.new.solve(initial)
-puts solution
-
+puts(solution)
+puts(solution.g) unless solution.solved?
