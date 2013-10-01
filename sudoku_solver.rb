@@ -19,11 +19,8 @@ class Cell
   def solve(value)
     unless solved?
       # puts "solving #{self} to #{value}"
-      candidates_to_eliminate = (1..9).to_set.delete(value)
-      # candidates_to_eliminate.each { |candidate| eliminate(candidate) } # TOOD: infinite recursion!
-      candidates.subtract(candidates_to_eliminate)
-      @grid.eliminate_from_related_cells(self)
-      true
+      (1..9).to_set.delete(value).each { |candidate| eliminate(candidate) }
+      self
     end
   end
 
@@ -63,22 +60,20 @@ end
 class Grid
   attr_reader :g
 
-  def initialize
+  def initialize(initial)
     @g = (0..8).map { |row| (0..8).map { |col| Cell.new(row, col, self) } }
-  end
-
-  def solve(initial)
     (0..8).each do |row| 
       (0..8).each do |col|
         value = initial[row][col].to_i
         if (1..9).include?(value)
-          # puts "setting #{row},#{col} with #{value}"
           g[row][col].solve(value) 
         end
       end
     end
-    puts "done setting up initial grid"
-    puts self
+  end
+
+  def solve
+    # puts "setting #{row},#{col} with #{value}"
     progress = true
     n = 0
     while !solved? && progress
@@ -86,14 +81,11 @@ class Grid
       n += 1
       puts "loop #{n}"
       (1..9).each do |candidate|
-        (0..8).each do |row|
-          progress ||= test_row_solved_for(row, candidate)
-        end
-        (0..8).each do |col|
-          progress ||= test_col_solved_for(col, candidate)
-        end
-        (0..8).each do |box|
-          progress ||= test_box_solved_for(3 * (box / 3), 3 * (box % 3), candidate)
+        (0..8).each do |i|
+          progress ||= 
+            test_row_solved_for(i, candidate) ||
+            test_col_solved_for(i, candidate) ||
+            test_box_solved_for(3 * (i / 3), 3 * (i % 3), candidate)
         end
       end
     end
@@ -116,44 +108,32 @@ class Grid
   # must be that value
   def test_row_solved_for(row, value)
     # puts "test_row_solved_for(#{row}, #{value})"
-    cells_with_value =
-      g[row].select { |cell| cell.candidates.include?(value) }
-    if cells_with_value.size == 1
-      if cells_with_value.first.solve(value)
-        puts "solved #{cells_with_value.first} in row"
-        true
-      end
-    end
+    test_element_solved_for(g[row], value, 'row')
   end
 
   # if a cell in the col is the only one with the candidate value, it
   # must be that value
   def test_col_solved_for(col, value)
     # puts "test_col_solved_for(#{col}, #{value})"
-    cells_with_value =
-      column(col).select { |cell| cell.candidates.include?(value) }
-    if cells_with_value.size == 1
-      if cells_with_value.first.solve(value)
-        puts "solved #{cells_with_value.first} in col"
-        true
-      end
-    end
+    test_element_solved_for(column(col), value, 'col')
   end
-     
+
   # if a cell in the box is the only one with the candidate value, it
   # must be that value
   def test_box_solved_for(row, col, value)
     # puts "test_box_solved_for(#{row}, #{col}, #{value})"
-    cells_with_value =
-      box(row, col).select { |cell| cell.candidates.include?(value) }
-    if cells_with_value.size == 1
-      if cells_with_value.first.solve(value)
-        puts "solved #{cells_with_value.first} in box"
-        true
-      end
-    end
+    test_element_solved_for(box(row, col), value, 'box')
   end
 
+  def test_element_solved_for(cells, value, element)
+    cells_with_value =
+      cells.select { |cell| cell.candidates.include?(value) }
+    if cells_with_value.size == 1
+      cell = cells_with_value.first.solve(value)
+      puts "solved #{cells_with_value.first} in #{element}"
+    end
+  end
+     
   def eliminate_from_related_cells(solved_cell)
     if solved_cell.solved?
       (row(solved_cell.row) + 
@@ -226,7 +206,18 @@ no105 =
    '8.......2',
    '....81.4.']
 
-online = 
+level2 =
+  ['.7...3942',
+   '3....6...',
+   '.4..1..68',
+   '.96.7....',
+   '.........',
+   '....5.13.',
+   '91..3..2.',
+   '...7....3',
+   '8352...7.']
+
+level3_1 = 
   ['9...4...1',
    '2...6.59.',
    '.1..5.7..',
@@ -237,9 +228,51 @@ online =
    '.81.2...9',
    '7...1...8']
 
-initial = no105
+level3_2 =
+  ['.....1...',
+   '..47..3..',
+   '.9..4...8',
+   '..6..2..1',
+   '.196.578.',
+   '3..8..5..',
+   '9...2..6.',
+   '..7..31..',
+   '...4.....']
+
+level3_3 = 
+  ['..89.....',
+   '....7.8..',
+   '.3..82.5.',
+   '5..62..3.',
+   '..1...5..',
+   '.9..41..7',
+   '.7.43..9.',
+   '..2.6....',
+   '.....76..']
+
+level4 =
+  ['3.......1',
+   '.4..97...',
+   '.162..8..',
+   '.5......2',
+   '.6.4.9.3.',
+   '2......8.',
+   '..2..364.',
+   '...74..9.',
+   '5.......8']
+   
+
+initial = no5
 puts initial
 puts
-solution = Grid.new.solve(initial)
+g = Grid.new(initial)
+puts g
+puts
+solution = g.solve
 puts(solution)
-puts(solution.g) unless solution.solved?
+if solution.solved?
+  puts "SOLVED!" 
+else
+  puts
+  puts(solution.g) unless solution.solved?
+end
